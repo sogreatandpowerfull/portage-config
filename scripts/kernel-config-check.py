@@ -1,28 +1,27 @@
 #!/usr/bin/env python
 # Check installed packages using linux-info.eclass for necessary kernel options
 
-import pdb, signal
-import portage
+import signal
+from portage.util import ensure_dirs
+from portage.package.ebuild.doebuild import doebuild
+from portage import dbapi, catsplit, config
 
 def debug_signal(_signum, _frame):
-	import pdb
-	pdb.set_trace()
+    import pdb
+    pdb.set_trace()
 
 signal.signal(signal.SIGUSR1, debug_signal)
 
-vartree = portage.db[portage.root]['vartree']
+vartree = dbapi.get("vartree")
+settings = config()
 
-all_cpvs = vartree.dbapi.cpv_all()
-settings = portage.config()
-
-for cpv in all_cpvs:
-    inherit = vartree.dbapi.aux_get(cpv, ['INHERITED'])[0]
-    if 'linux-info' in inherit:
-        pv = portage.catsplit(cpv)[1]
-        cpvpath = vartree.dbapi.getpath(cpv)+'/'+pv+'.ebuild'
-        print('Checking: '+cpv, flush=True)
-        portage.doebuild(cpvpath, 'clean', settings=settings, tree='vartree',
-                         vartree=vartree)
-        portage.doebuild(cpvpath, 'setup', settings=settings, tree='vartree',
-                         vartree=vartree)
-        print('Finished: '+cpv, flush=True)
+for cpv in vartree.cpv_all():
+    inherit = vartree.aux_get(cpv, ["INHERITED"])[0]
+    if "linux-info" in inherit:
+        pv = catsplit(cpv)[1]
+        cpvpath = vartree.getpath(cpv) + "/" + pv + ".ebuild"
+        print(f"Checking: {cpv}", flush=True)
+        ensure_dirs(cpvpath)
+        for phase in ["clean", "setup"]:
+            doebuild(cpvpath, phase, settings=settings, tree="vartree", vartree=vartree)
+        print(f"Finished: {cpv}", flush=True)
